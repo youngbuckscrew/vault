@@ -34,7 +34,7 @@ func prepareTestContainer(t *testing.T, s logical.Storage, b logical.Backend) (c
 		dockertest.Pull("mysql")
 	})
 
-	cid, connErr := dockertest.ConnectToMySQL(60, 500*time.Millisecond, func(connURL string) bool {
+	cid, connErr := dockertest.ConnectToMySQL(120, 500*time.Millisecond, func(connURL string) bool {
 		// This will cause a validation to run
 		resp, err := b.HandleRequest(context.Background(), &logical.Request{
 			Storage:   s,
@@ -81,7 +81,6 @@ func TestBackend_config_connection(t *testing.T) {
 	}
 
 	configData := map[string]interface{}{
-		"value":                "",
 		"connection_url":       "sample_connection_url",
 		"max_open_connections": 9,
 		"max_idle_connections": 7,
@@ -106,6 +105,7 @@ func TestBackend_config_connection(t *testing.T) {
 	}
 
 	delete(configData, "verify_connection")
+	delete(configData, "connection_url")
 	if !reflect.DeepEqual(configData, resp.Data) {
 		t.Fatalf("bad: expected:%#v\nactual:%#v\n", configData, resp.Data)
 	}

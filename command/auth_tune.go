@@ -3,6 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,11 +18,13 @@ var _ cli.CommandAutocomplete = (*AuthTuneCommand)(nil)
 type AuthTuneCommand struct {
 	*BaseCommand
 
+	flagOptions                  map[string]string
 	flagDefaultLeaseTTL          time.Duration
 	flagMaxLeaseTTL              time.Duration
 	flagAuditNonHMACRequestKeys  []string
 	flagAuditNonHMACResponseKeys []string
 	flagListingVisibility        string
+	flagVersion                  int
 }
 
 func (c *AuthTuneCommand) Synopsis() string {
@@ -49,6 +52,14 @@ func (c *AuthTuneCommand) Flags() *FlagSets {
 	set := c.flagSet(FlagSetHTTP)
 
 	f := set.NewFlagSet("Command Options")
+
+	f.StringMapVar(&StringMapVar{
+		Name:       "options",
+		Target:     &c.flagOptions,
+		Completion: complete.PredictAnything,
+		Usage: "Key-value pair provided as key=value for the mount options. " +
+			"This can be specified multiple times.",
+	})
 
 	f.DurationVar(&DurationVar{
 		Name:       "default-lease-ttl",
@@ -92,6 +103,13 @@ func (c *AuthTuneCommand) Flags() *FlagSets {
 		Usage:  "Determines the visibility of the mount in the UI-specific listing endpoint.",
 	})
 
+	f.IntVar(&IntVar{
+		Name:    "version",
+		Target:  &c.flagVersion,
+		Default: 0,
+		Usage:   "Select the version of the auth method to run. Not supported by all auth methods.",
+	})
+
 	return set
 }
 
@@ -127,7 +145,15 @@ func (c *AuthTuneCommand) Run(args []string) int {
 		return 2
 	}
 
+	if c.flagVersion > 0 {
+		if c.flagOptions == nil {
+			c.flagOptions = make(map[string]string)
+		}
+		c.flagOptions["version"] = strconv.Itoa(c.flagVersion)
+	}
+
 	mountConfigInput := api.MountConfigInput{
+		Options:         c.flagOptions,
 		DefaultLeaseTTL: ttlToAPI(c.flagDefaultLeaseTTL),
 		MaxLeaseTTL:     ttlToAPI(c.flagMaxLeaseTTL),
 	}

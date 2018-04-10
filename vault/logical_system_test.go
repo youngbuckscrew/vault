@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/fatih/structs"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/audit"
 	"github.com/hashicorp/vault/helper/builtinplugins"
 	"github.com/hashicorp/vault/helper/salt"
@@ -35,6 +36,7 @@ func TestSystemBackend_RootPaths(t *testing.T) {
 		"rotate",
 		"config/cors",
 		"config/auditing/*",
+		"config/ui/headers/*",
 		"plugins/catalog/*",
 		"revoke-prefix/*",
 		"revoke-force/*",
@@ -46,7 +48,7 @@ func TestSystemBackend_RootPaths(t *testing.T) {
 	b := testSystemBackend(t)
 	actual := b.SpecialPaths().Root
 	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("bad: %#v", actual)
+		t.Fatalf("bad: mismatch\nexpected:\n%#v\ngot:\n%#v", expected, actual)
 	}
 }
 
@@ -129,6 +131,9 @@ func TestSystemBackend_mounts(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options": map[string]string{
+				"version": "1",
+			},
 		},
 		"sys/": map[string]interface{}{
 			"type":        "system",
@@ -142,6 +147,7 @@ func TestSystemBackend_mounts(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 		"cubbyhole/": map[string]interface{}{
 			"description": "per-token private secret storage",
@@ -155,6 +161,7 @@ func TestSystemBackend_mounts(t *testing.T) {
 			},
 			"local":     true,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 		"identity/": map[string]interface{}{
 			"description": "identity store",
@@ -168,6 +175,7 @@ func TestSystemBackend_mounts(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 	}
 	if !reflect.DeepEqual(resp.Data, exp) {
@@ -186,6 +194,9 @@ func TestSystemBackend_mount(t *testing.T) {
 	}
 	req.Data["local"] = true
 	req.Data["seal_wrap"] = true
+	req.Data["options"] = map[string]string{
+		"version": "1",
+	}
 
 	resp, err := b.HandleRequest(context.Background(), req)
 	if err != nil {
@@ -216,6 +227,9 @@ func TestSystemBackend_mount(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options": map[string]string{
+				"version": "1",
+			},
 		},
 		"sys/": map[string]interface{}{
 			"type":        "system",
@@ -229,6 +243,7 @@ func TestSystemBackend_mount(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 		"cubbyhole/": map[string]interface{}{
 			"description": "per-token private secret storage",
@@ -242,6 +257,7 @@ func TestSystemBackend_mount(t *testing.T) {
 			},
 			"local":     true,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 		"identity/": map[string]interface{}{
 			"description": "identity store",
@@ -255,6 +271,7 @@ func TestSystemBackend_mount(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 		"prod/secret/": map[string]interface{}{
 			"description": "",
@@ -268,6 +285,9 @@ func TestSystemBackend_mount(t *testing.T) {
 			},
 			"local":     true,
 			"seal_wrap": true,
+			"options": map[string]string{
+				"version": "1",
+			},
 		},
 	}
 	if !reflect.DeepEqual(resp.Data, exp) {
@@ -311,7 +331,7 @@ func TestSystemBackend_mount_invalid(t *testing.T) {
 	if err != logical.ErrInvalidRequest {
 		t.Fatalf("err: %v", err)
 	}
-	if resp.Data["error"] != "unknown backend type: nope" {
+	if resp.Data["error"] != `unknown backend type: "nope"` {
 		t.Fatalf("bad: %v", resp)
 	}
 }
@@ -633,7 +653,7 @@ func TestSystemBackend_remount_invalid(t *testing.T) {
 	if err != logical.ErrInvalidRequest {
 		t.Fatalf("err: %v", err)
 	}
-	if resp.Data["error"] != "no matching mount at 'unknown/'" {
+	if resp.Data["error"] != `no matching mount at "unknown/"` {
 		t.Fatalf("bad: %v", resp)
 	}
 }
@@ -648,7 +668,7 @@ func TestSystemBackend_remount_system(t *testing.T) {
 	if err != logical.ErrInvalidRequest {
 		t.Fatalf("err: %v", err)
 	}
-	if resp.Data["error"] != "cannot remount 'sys/'" {
+	if resp.Data["error"] != `cannot remount "sys/"` {
 		t.Fatalf("bad: %v", resp)
 	}
 }
@@ -1253,7 +1273,7 @@ func TestSystemBackend_revokePrefixAuth(t *testing.T) {
 			MaxLeaseTTLVal:     time.Hour * 24 * 32,
 		},
 	}
-	b := NewSystemBackend(core)
+	b := NewSystemBackend(core, hclog.New(&hclog.LoggerOptions{}))
 	err := b.Backend.Setup(context.Background(), bc)
 	if err != nil {
 		t.Fatal(err)
@@ -1317,7 +1337,7 @@ func TestSystemBackend_revokePrefixAuth_origUrl(t *testing.T) {
 			MaxLeaseTTLVal:     time.Hour * 24 * 32,
 		},
 	}
-	b := NewSystemBackend(core)
+	b := NewSystemBackend(core, hclog.New(&hclog.LoggerOptions{}))
 	err := b.Backend.Setup(context.Background(), bc)
 	if err != nil {
 		t.Fatal(err)
@@ -1392,6 +1412,7 @@ func TestSystemBackend_authTable(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 	}
 	if !reflect.DeepEqual(resp.Data, exp) {
@@ -1443,6 +1464,7 @@ func TestSystemBackend_enableAuth(t *testing.T) {
 			},
 			"local":     true,
 			"seal_wrap": true,
+			"options":   map[string]string{},
 		},
 		"token/": map[string]interface{}{
 			"type":        "token",
@@ -1455,6 +1477,7 @@ func TestSystemBackend_enableAuth(t *testing.T) {
 			},
 			"local":     false,
 			"seal_wrap": false,
+			"options":   map[string]string(nil),
 		},
 	}
 	if !reflect.DeepEqual(resp.Data, exp) {
@@ -1470,7 +1493,7 @@ func TestSystemBackend_enableAuth_invalid(t *testing.T) {
 	if err != logical.ErrInvalidRequest {
 		t.Fatalf("err: %v", err)
 	}
-	if resp.Data["error"] != "unknown backend type: nope" {
+	if resp.Data["error"] != `unknown backend type: "nope"` {
 		t.Fatalf("bad: %v", resp)
 	}
 }
@@ -1687,7 +1710,7 @@ func TestSystemBackend_enableAudit_invalid(t *testing.T) {
 	if err != logical.ErrInvalidRequest {
 		t.Fatalf("err: %v", err)
 	}
-	if resp.Data["error"] != "unknown backend type: nope" {
+	if resp.Data["error"] != `unknown backend type: "nope"` {
 		t.Fatalf("bad: %v", resp)
 	}
 }
@@ -1935,7 +1958,7 @@ func testSystemBackendInternal(t *testing.T, c *Core) logical.Backend {
 		},
 	}
 
-	b := NewSystemBackend(c)
+	b := NewSystemBackend(c, hclog.New(&hclog.LoggerOptions{}))
 	err := b.Backend.Setup(context.Background(), bc)
 	if err != nil {
 		t.Fatal(err)

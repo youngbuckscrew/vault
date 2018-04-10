@@ -118,18 +118,20 @@ func TestCore_Mount_Local(t *testing.T) {
 		Type: mountTableType,
 		Entries: []*MountEntry{
 			&MountEntry{
-				Table:    mountTableType,
-				Path:     "noop/",
-				Type:     "kv",
-				UUID:     "abcd",
-				Accessor: "kv-abcd",
+				Table:            mountTableType,
+				Path:             "noop/",
+				Type:             "kv",
+				UUID:             "abcd",
+				Accessor:         "kv-abcd",
+				BackendAwareUUID: "abcde",
 			},
 			&MountEntry{
-				Table:    mountTableType,
-				Path:     "noop2/",
-				Type:     "kv",
-				UUID:     "bcde",
-				Accessor: "kv-bcde",
+				Table:            mountTableType,
+				Path:             "noop2/",
+				Type:             "kv",
+				UUID:             "bcde",
+				Accessor:         "kv-bcde",
+				BackendAwareUUID: "bcdea",
 			},
 		},
 	}
@@ -447,7 +449,7 @@ func TestCore_Remount_Cleanup(t *testing.T) {
 func TestCore_Remount_Protected(t *testing.T) {
 	c, _, _ := TestCoreUnsealed(t)
 	err := c.remount(context.Background(), "sys", "foo")
-	if err.Error() != "cannot remount 'sys/'" {
+	if err.Error() != `cannot remount "sys/"` {
 		t.Fatalf("err: %v", err)
 	}
 }
